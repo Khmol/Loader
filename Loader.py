@@ -43,15 +43,20 @@ class Serial_Qt(QtWidgets.QMainWindow):
     def init_RS(self):
         list_com_ports = '' #перечень доступных портов
         #проверка какие порты свободны
-        for s in self.scan_COM_ports():
-            list_com_ports += s + ' '
-        #инициализация таймера
-        self.timer_Reset()
-        #настройка списка для выбора порта
-        #добавляем свободные порты в comboBox_COM
-        self.ui.comboBox_COM.clear()
-        self.ui.comboBox_COM.addItems(list_com_ports.split())
-        self.ui.comboBox_COM.setCurrentIndex(0)
+        try:
+            portList = self.scan_COM_ports()
+            for s in portList:
+                list_com_ports += s + ' '
+        except:
+            pass
+        finally:
+            #инициализация таймера
+            self.timer_Reset()
+            #настройка списка для выбора порта
+            #добавляем свободные порты в comboBox_COM
+            self.ui.comboBox_COM.clear()
+            self.ui.comboBox_COM.addItems(list_com_ports.split())
+            self.ui.comboBox_COM.setCurrentIndex(0)
 
     #*********************************************************************
     #первоначальная инициализация переменных

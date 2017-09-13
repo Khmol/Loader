@@ -6,7 +6,7 @@ READ_BYTES = 100
 OK_ANSWER = bytearray('OK'.encode('latin-1')) #OK
 ERR_ANSWER = bytearray('Err'.encode('latin-1')) #Err
 MAX_WAIT_BYTES = 200    #максимальное количество байт в буфере порта на прием
-NUMBER_SCAN_PORTS = 10  #количество портов для сканирования 10
+NUMBER_SCAN_PORTS = 30   #количество портов для сканирования 10
 SET = 1
 RESET = 0
 
