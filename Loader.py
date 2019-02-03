@@ -26,8 +26,14 @@ class Serial_Qt(QtWidgets.QMainWindow):
         #добавляем нужные скорости в comboBox_Baudrate
         self.ui.comboBox_Baudrate.addItems(BAUDRATES)
         self.ui.comboBox_Baudrate.setCurrentIndex(5)
+        #добавляем нужные времена задержки в comboBox_Erase_Time
+        self.ui.comboBox_Erase_Time.addItems(ERASE_TIME)
+        self.ui.comboBox_Erase_Time.setCurrentIndex(3)
+        #добавляем нужные времена задержки в comboBox_Reset_Time
+        self.ui.comboBox_Reset_Time.addItems(RESET_TIME)
+        self.ui.comboBox_Reset_Time.setCurrentIndex(15)
         #вывод строки в statusbar
-        self.ui.statusbar.showMessage('Загрузчик: версия 2.00')
+        self.ui.statusbar.showMessage('Загрузчик: версия 2.01')
 
     #*********************************************************************
     #первоначальная инициализация переменных
@@ -104,7 +110,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.rs_pack_size_TX = 0    #размер передаваемого пакета в байтах
         self.rs_pack_seq_TX = 0     #номер пакета в последовательности
         self.TIME_TO_CPU_RESET = 2500                   #время на перезагрузку - 2,5 с
-        self.TIME_TO_ERASE = 2000                       #время на стирание FLASH - 2 с
+        self.TIME_TO_ERASE = 20000                       #время на стирание FLASH - 2 с
         #начальные данные для приемника
         self.rs_pack_size_RX = 0    #размер принятого пакета в байтах
         self.rs_pack_seq_RX = 0     #номер принятого пакета в последовательности
@@ -125,6 +131,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.pushButton_close_COM.setEnabled(SET)        #активируем кнопку закрытие порта
         self.ui.comboBox_COM.setDisabled(SET)               #де-активируем выбор порта
         self.ui.comboBox_Baudrate.setDisabled(SET)          #де-активируем выбор скорости
+        self.ui.comboBox_Erase_Time.setDisabled(SET)        #де-активируем выбор времени стирания
+        self.ui.comboBox_Reset_Time.setDisabled(SET)        #де-активируем выбор времени перезагрузки
 
     #*********************************************************************
     #активация кнопок после выбора порта и скорости
@@ -135,6 +143,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.pushButton_close_COM.setDisabled(SET)          #де-активируем кнопку закрытие порта
         self.ui.comboBox_COM.setDisabled(SET)                  #де-активируем выбор порта
         self.ui.comboBox_Baudrate.setDisabled(SET)             #де-активируем выбор скорости
+        self.ui.comboBox_Erase_Time.setDisabled(SET)           #де-активируем выбор времени стирания
+        self.ui.comboBox_Reset_Time.setDisabled(SET)           #де-активируем выбор времени перезагрузки
         self.ui.pushButton_Send.setDisabled(SET)               #де-активируем кнопку "Прошить"
 
     #*********************************************************************
@@ -146,6 +156,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.pushButton_close_COM.setDisabled(SET)          #де-активируем кнопку закрытие порта
         self.ui.comboBox_COM.setEnabled(SET)                   #активируем выбор порта
         self.ui.comboBox_Baudrate.setEnabled(SET)              #активируем выбор скорости
+        self.ui.comboBox_Erase_Time.setEnabled(SET)            #активируем выбор времени стирания
+        self.ui.comboBox_Reset_Time.setEnabled(SET)            #активируем выбор времени перезагрузки
         self.ui.pushButton_Send.setDisabled(SET)               #де-активируем кнопку "Прошить"
 
     #*********************************************************************
@@ -162,6 +174,9 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #обработчик кнопки Прошить/Прервать
     #*********************************************************************
     def Send_Stop_Handler(self):
+        # устанавливаем значения времен для перезагрузки и стирания памяти в сигналке
+        self.TIME_TO_CPU_RESET = int(self.ui.comboBox_Reset_Time.currentText()) #время на перезагрузку
+        self.TIME_TO_ERASE = int(self.ui.comboBox_Erase_Time.currentText()) #время на стирание FLASH
         #если нужно запустить прошивку
         if self.STATUS_NEW == self.ID2["IDLE"]:
             #меняем состояние программы
@@ -257,6 +272,12 @@ class Serial_Qt(QtWidgets.QMainWindow):
                         self.TIME_TO_RX = 150#
                     elif baudrate == 1200:
                         self.TIME_TO_RX = 1200#
+                    elif baudrate == 230400:
+                        self.TIME_TO_RX = 20#
+                    elif baudrate == 460800:
+                        self.TIME_TO_RX = 10#
+                    elif baudrate == 921600:
+                        self.TIME_TO_RX = 5#
                 except:
                     out_str = "Порт будет закрыт, повторите прошивку заново."
                     QtWidgets.QMessageBox.warning(self, 'Ошибка работы с портом №2',out_str , QtWidgets.QMessageBox.Ok)

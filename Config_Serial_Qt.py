@@ -1,7 +1,9 @@
 #coding: utf8
 
 #class Config_Serial_Qt():
-BAUDRATES = ['1200', '9600', '19200', '38400', '57600', '115200']    #возможные значения скоростей для RS-232
+BAUDRATES = ['1200', '9600', '19200', '38400', '57600', '115200','230400','460800','921600']    #возможные значения скоростей для RS-232
+RESET_TIME = [str(x) for x in range(1000, 4001, 100)]    #возможные задержки для времени перезагрузки
+ERASE_TIME = [str(x) for x in range(5000, 50001, 5000)]    #возможные задержки для времени очистки памяти
 READ_BYTES = 100
 OK_ANSWER = bytearray('OK'.encode('latin-1')) #OK
 ERR_ANSWER = bytearray('Err'.encode('latin-1')) #Err

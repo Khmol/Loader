@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'Serial_Qt.ui'
 #
-# Created by: PyQt5 UI code generator 5.5
+# Created by: PyQt5 UI code generator 5.5.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -11,12 +11,12 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class Ui_Serial_Main(object):
     def setupUi(self, Serial_Main):
         Serial_Main.setObjectName("Serial_Main")
-        Serial_Main.resize(370, 300)
-        Serial_Main.setMinimumSize(QtCore.QSize(370, 300))
-        Serial_Main.setMaximumSize(QtCore.QSize(370, 300))
+        Serial_Main.resize(370, 340)
+        Serial_Main.setMinimumSize(QtCore.QSize(370, 340))
+        Serial_Main.setMaximumSize(QtCore.QSize(370, 340))
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap("touchscreen.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         icon.addPixmap(QtGui.QPixmap("touchscreen.ico"), QtGui.QIcon.Normal, QtGui.QIcon.On)
+        icon.addPixmap(QtGui.QPixmap("touchscreen.ico"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Serial_Main.setWindowIcon(icon)
         self.centralwidget = QtWidgets.QWidget(Serial_Main)
         self.centralwidget.setObjectName("centralwidget")
@@ -56,9 +56,21 @@ class Ui_Serial_Main(object):
         self.pushButton_close_COM.setEnabled(False)
         self.pushButton_close_COM.setGeometry(QtCore.QRect(169, 55, 83, 23))
         self.pushButton_close_COM.setObjectName("pushButton_close_COM")
+        self.label_Erase_Time = QtWidgets.QLabel(self.centralwidget)
+        self.label_Erase_Time.setGeometry(QtCore.QRect(9, 271, 101, 16))
+        self.label_Erase_Time.setObjectName("label_Erase_Time")
+        self.comboBox_Erase_Time = QtWidgets.QComboBox(self.centralwidget)
+        self.comboBox_Erase_Time.setGeometry(QtCore.QRect(110, 270, 61, 20))
+        self.comboBox_Erase_Time.setObjectName("comboBox_Erase_Time")
+        self.label_Reset_Time = QtWidgets.QLabel(self.centralwidget)
+        self.label_Reset_Time.setGeometry(QtCore.QRect(180, 271, 131, 16))
+        self.label_Reset_Time.setObjectName("label_Reset_Time")
+        self.comboBox_Reset_Time = QtWidgets.QComboBox(self.centralwidget)
+        self.comboBox_Reset_Time.setGeometry(QtCore.QRect(313, 270, 51, 20))
+        self.comboBox_Reset_Time.setObjectName("comboBox_Reset_Time")
         Serial_Main.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(Serial_Main)
-        self.menubar.setGeometry(QtCore.QRect(0, 0, 370, 18))
+        self.menubar.setGeometry(QtCore.QRect(0, 0, 370, 21))
         self.menubar.setObjectName("menubar")
         Serial_Main.setMenuBar(self.menubar)
         self.statusbar = QtWidgets.QStatusBar(Serial_Main)
@@ -79,5 +91,7 @@ class Ui_Serial_Main(object):
         self.label_2.setText(_translate("Serial_Main", "Выбор порта"))
         self.pushButton_open_COM.setText(_translate("Serial_Main", "Открыть порт"))
         self.pushButton_close_COM.setText(_translate("Serial_Main", "Закрыть порт"))
+        self.label_Erase_Time.setText(_translate("Serial_Main", "Время стирания, мс"))
+        self.label_Reset_Time.setText(_translate("Serial_Main", "Время перезагрузки, мс"))
         self.action.setText(_translate("Serial_Main", "Закрыть"))
 
