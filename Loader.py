@@ -33,7 +33,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Reset_Time.addItems(RESET_TIME)
         self.ui.comboBox_Reset_Time.setCurrentIndex(15)
         #вывод строки в statusbar
-        self.ui.statusbar.showMessage('Загрузчик: версия 2.01')
+        self.ui.statusbar.showMessage('Загрузчик: версия 2.10')
+        self.numberClearRx = 0
 
     #*********************************************************************
     #первоначальная инициализация переменных
@@ -199,7 +200,6 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ser.close()                                  #закрываем порт
         self.Change_Button_Stop_to_Send()                 #изменяем надпись на кнопке - Прервать на Прошить
         self.Disable_All_Buttons()                        #выключаем все кнопки и элементы выбора
-        self.init_RS()                                    #проводим переопрос портов
         self.Disable_Buttons_to_Select_COM()              #изменяем кнопки для выбора порта и скорости
         #переходим в состояние IDLE если были в другом состоянии
         if self.STATUS_NEW == self.ID2["END"]:
@@ -273,11 +273,12 @@ class Serial_Qt(QtWidgets.QMainWindow):
                     elif baudrate == 1200:
                         self.TIME_TO_RX = 1200#
                     elif baudrate == 230400:
-                        self.TIME_TO_RX = 20#
+                        self.TIME_TO_RX = 40#
                     elif baudrate == 460800:
-                        self.TIME_TO_RX = 10#
+                        self.TIME_TO_RX = 40#
                     elif baudrate == 921600:
-                        self.TIME_TO_RX = 5#
+                        self.TIME_TO_RX = 40#
+                    self.TIME_TO_RX_DATA = 10#
                 except:
                     out_str = "Порт будет закрыт, повторите прошивку заново."
                     QtWidgets.QMessageBox.warning(self, 'Ошибка работы с портом №2',out_str , QtWidgets.QMessageBox.Ok)
@@ -305,7 +306,18 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #*********************************************************************
     def analyze_pack(self):
         #проверка на стартовую посылку
-        if self.rs_receive_pack[0:2] == self.RS_START:
+        adr_start = self.rs_receive_pack.find(self.RS_START)
+        command = bytearray()
+        if adr_start != -1:
+            adr_stop = self.rs_receive_pack.find(self.RS_START, 2)
+            if adr_stop != -1:
+                command = self.rs_receive_pack[adr_start : adr_stop]
+            else:
+                command = self.rs_receive_pack[adr_start : ]
+
+        #if self.rs_receive_pack[0:2] == self.RS_START:
+        if command != '':
+            self.rs_receive_pack = command
             #производим рассчет CRC16 для self.rs_send_pack без последних двух байт
             crc = INITIAL_MODBUS
             pack_length = len(self.rs_receive_pack)
@@ -328,7 +340,21 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 print(int.from_bytes(rx_length, byteorder='little'))
                 if pack_length != int.from_bytes(rx_length, byteorder='little'):
                     return  #выходим если принятая длина не совпадает с реальной
-                if self.rs_receive_pack[self.Position["DATA_START"]:(self.Position["DATA_START"]+2)] == OK_ANSWER[0:2]:#получено OK ?
+
+
+
+                # удалить после исправления ПО в железке
+                if self.STATUS_NEW == self.ID2["ERASE"]:
+                    if self.rs_receive_pack[self.Position["ID2"]] == self.ID2[
+                        "ERASE"]:  # проверка ответного ID2 - было [4]
+                        self.STATUS_OLD = self.STATUS_NEW
+                        self.STATUS_NEW = self.ID2["WRITE"]
+                        # устанавливаем ID2 состояние WRITE
+                        self.rs_ID2_TX = self.ID2["WRITE"]
+                        self.flag_RX_OK = True
+
+
+                if (self.rs_receive_pack[self.Position["DATA_START"]:(self.Position["DATA_START"]+2)] == OK_ANSWER[0:2])  :#получено OK ?
                     if self.STATUS_NEW == self.ID2["START"]:
                         if self.rs_receive_pack[self.Position["ID2"]] == self.ID2["START"]:#проверка ответного ID2 - было [4]
                             self.STATUS_OLD = self.STATUS_NEW
@@ -358,6 +384,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
                         if self.rs_receive_pack[self.Position["ID2"]] == self.ID2["END"]:    #проверка ответного ID2 - было [4]
                             #изменяем назначение кнопки Прервать
                             self.Change_Button_Stop_to_Send()
+                            # проводим переопрос портов
+                            self.init_RS()
                             # активировать кнопки
                             #self.enable_Buttons()
                             self.STATUS_OLD = self.STATUS_NEW
@@ -432,7 +460,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #открытие файла
     #*********************************************************************
     def showDialog_Open_File(self):
-        self.filename = QtWidgets.QFileDialog.getOpenFileName(self, 'Открыть файл прошивки', '/dir')
+        self.filename = QtWidgets.QFileDialog.getOpenFileName(
+               self, 'Open File', '', 'BINARY (*.bin *.hex)',
+               None, QtWidgets.QFileDialog.DontUseNativeDialog)
+        #self.filename = QtWidgets.QFileDialog.getOpenFileName(self, 'Открыть файл прошивки', '/dir')
         if self.filename[0]!='':
             self.ui.pushButton_Send.setEnabled(SET)   #активируем кнопку "Прошить"
             self.file_hex = open(self.filename[0],'rb')#открываем файл если он не открыт
@@ -446,7 +477,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #*********************************************************************
     #отправка файла в порт
     #*********************************************************************
-    def send_file(self):
+    def OpenFile(self):
         if self.STATUS_NEW == self.ID2["WRITE"]:
             self.Transmit_Off = self.file_hex.closed
             #если файл закрыт - открываем его
@@ -455,7 +486,9 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 self.Transmit_Off = self.file_hex.closed
             self.pos_new = 0
             self.pos_last = 0
-            self.timer_RX_RS.start(self.TIME_TO_RX, self) #ждем ответ в течении self.TIME_TO_RX мс
+            # читаем все данные из файла
+            self.file_hex.seek(self.pos_new)
+            self.allDataFile = self.file_hex.read();
         return
 
     #*********************************************************************
@@ -467,11 +500,14 @@ class Serial_Qt(QtWidgets.QMainWindow):
             #проверка оттрыт ли файл
             if self.Transmit_Off == False:
                 #файл открыт
-                self.file_hex.seek(self.pos_new)
+                #self.file_hex.seek(self.pos_new)
                 #читаем данные из файла
-                self.rs_DATA_TX_temp = self.file_hex.read(READ_BYTES) #читает из файла 100 байт
-                self.pos_new = self.file_hex.tell()  #сохраняем текущую позицию в файле
+                #self.rs_DATA_TX_temp = self.file_hex.read(READ_BYTES) #читает из файла 100 байт
+                #self.pos_new = self.file_hex.tell()  #сохраняем текущую позицию в файле
                 self.ui.progressBar.setValue(self.pos_new)   #установка текущего значения для progressBar
+                # читаем данные из allDataFile
+                self.rs_DATA_TX_temp = self.allDataFile[self.pos_new : (self.pos_new + READ_BYTES)]
+                self.pos_new += READ_BYTES
                 if not self.rs_DATA_TX_temp: # возвращается пустая строка в случае конца файла
                     self.file_hex.close()   #закрываем файл
                     self.pos_new = 0
@@ -485,7 +521,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 #формируем аднные для передачи
                 self.rs_DATA_TX = self.pos_new.to_bytes(4,'little') + self.rs_DATA_TX_temp
                 self.Transmit_RS_Data() #передаем данные в порт
-                delay_time = self.TIME_TO_RX;      #задержка в 100 мс
+                delay_time = self.TIME_TO_RX_DATA;      #задержка в TIME_TO_RX мс
                 self.timer_RX_RS.start(delay_time, self) #ждем ответ в течении self.TIME_TO_RX мс
             return
         except:
@@ -581,7 +617,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         #данных для передечи нет
         self.rs_DATA_TX = bytearray([0x00]) #данных для передечи нет
         self.Transmit_RS_Data() #передаем данные в порт
-        self.timer_RX_RS.start(self.TIME_TO_RX, self) #ждем ответ в течении self.TIME_TO_RX мс
+        self.timer_RX_RS.start(self.TIME_TO_RX * 10, self) #ждем ответ в течении self.TIME_TO_RX мс
         return
 
     #*********************************************************************
@@ -605,7 +641,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         if self.pos_new != self.pos_last:
             self.pos_new = self.pos_last    #возвращаемя к прошлому пакету
             if self.rs_pack_seq_TX == 0: #номер пакета возвращаем прошлый
-                self.rs_pack_seq_TX == 255
+                self.rs_pack_seq_TX = 255
             else:
                 self.rs_pack_seq_TX -= 1
         self.Read_File()
@@ -634,35 +670,46 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             #анализзируем принятые данные
                             self.analyze_pack()
                         if self.flag_RX_OK == True:
+                            self.numberClearRx = 0
                             #пакет был принят без ошибок
                             #вывод принятых данных в окно
                             self.ui.plainTextEdit.appendPlainText("Записано "+str(self.pos_new)+" байт")
-                            #отправляем слудующий пакет
+                            #отправляем следующий пакет
                             self.Read_File()
                         else:
-                            # в принятом пакете была ошибка, отправляем предыдущий пакет повторно
-                            self.Send_Previous_Pack()
-                            #вывод "ошибка обмена данными"
-                            self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
+                            self.numberClearRx += 1
+                            if self.numberClearRx == MAX_NUMBER_CLEAR_RX:
+                                # в принятом пакете была ошибка, отправляем предыдущий пакет повторно
+                                self.Send_Previous_Pack()
+                                #вывод "ошибка обмена данными"
+                                self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
+                        # ждем ответ в течении self.TIME_TO_RX_DATA мc
+                        self.timer_RX_RS.start(self.TIME_TO_RX_DATA, self)
                         self.flag_RX_OK = False
                         return
                     elif self.STATUS_NEW == self.ID2["START"]:
-                        self.Serial_Config() # открываем порт
-                        self.rs_receive_pack = self.Recieve_RS_Data()
-                        if self.rs_receive_pack != '':
-                            #анализзируем принятые данные
-                            self.analyze_pack()
-                        if self.flag_RX_OK == True:
-                            #вывод "ERASE"
-                            self.ui.plainTextEdit.appendPlainText("Очистка памяти")
-                            #переходим к передаче пакето очистки
-                            self.Send_Erase_Pack()
+                        if self.STATUS_OLD != self.ID2["START"]:
+                            self.Serial_Config() # открываем порт
+                            # отправляем пакет СТАРТ
+                            self.Send_Start_Pack()  # отправляем стартовый пакет
+                            # вывод "ошибка обмена данными"
+                            self.timer_RX_RS.start(self.TIME_TO_RX, self)  # ждем ответ в течении self.TIME_TO_RX мс
                         else:
-                            #пакет был принят с ошибкой, отправляем его повторно
-                            self.Send_Start_Pack()  #отправляем стартовый пакет
-                            #вывод "ошибка обмена данными"
-                            self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
-                            self.timer_RX_RS.start(self.TIME_TO_RX, self) #ждем ответ в течении self.TIME_TO_RX мс
+                            self.rs_receive_pack = self.Recieve_RS_Data()
+                            if self.rs_receive_pack != '':
+                                #анализзируем принятые данные
+                                self.analyze_pack()
+                            if self.flag_RX_OK == True:
+                                #вывод "ERASE"
+                                self.ui.plainTextEdit.appendPlainText("Очистка памяти")
+                                #переходим к передаче пакето очистки
+                                self.Send_Erase_Pack()
+                            else:
+                                #пакет был принят с ошибкой, отправляем его повторно
+                                self.Send_Start_Pack()  #отправляем стартовый пакет
+                                #вывод "ошибка обмена данными"
+                                self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
+                                self.timer_RX_RS.start(self.TIME_TO_RX, self) #ждем ответ в течении self.TIME_TO_RX мс
                         self.flag_RX_OK = False
                         return
                     elif self.STATUS_NEW == self.ID2["ERASE"]:
@@ -672,7 +719,9 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             self.analyze_pack()
                         if self.flag_RX_OK == True:
                             #переходим к передаче файла
-                            self.send_file()
+                            self.OpenFile()
+                            #отправляем следующий пакет
+                            self.Read_File()
                         else:
                             #пакет был принят с ошибкой, отправляем его повторно
                             self.Send_Erase_Pack()

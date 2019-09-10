@@ -11,4 +11,5 @@ MAX_WAIT_BYTES = 200    #максимальное количество байт 
 NUMBER_SCAN_PORTS = 30   #количество портов для сканирования 10
 SET = 1
 RESET = 0
+MAX_NUMBER_CLEAR_RX = 10
 
