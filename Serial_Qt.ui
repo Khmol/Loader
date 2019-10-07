@@ -6,20 +6,20 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>370</width>
-    <height>340</height>
+    <width>460</width>
+    <height>370</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>370</width>
-    <height>340</height>
+    <width>460</width>
+    <height>370</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>370</width>
-    <height>340</height>
+    <width>460</width>
+    <height>370</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -37,9 +37,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>260</x>
+      <x>340</x>
       <y>55</y>
-      <width>91</width>
+      <width>111</width>
       <height>23</height>
      </rect>
     </property>
@@ -66,9 +66,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>260</x>
+      <x>340</x>
       <y>27</y>
-      <width>91</width>
+      <width>111</width>
       <height>23</height>
      </rect>
     </property>
@@ -81,7 +81,7 @@
      <rect>
       <x>9</x>
       <y>100</y>
-      <width>341</width>
+      <width>441</width>
       <height>131</height>
      </rect>
     </property>
@@ -95,9 +95,9 @@
    <widget class="QComboBox" name="comboBox_Baudrate">
     <property name="geometry">
      <rect>
-      <x>89</x>
+      <x>113</x>
       <y>28</y>
-      <width>74</width>
+      <width>101</width>
       <height>20</height>
      </rect>
     </property>
@@ -107,7 +107,7 @@
      <rect>
       <x>9</x>
       <y>28</y>
-      <width>74</width>
+      <width>91</width>
       <height>20</height>
      </rect>
     </property>
@@ -128,9 +128,9 @@
    <widget class="QPushButton" name="pushButton_open_COM">
     <property name="geometry">
      <rect>
-      <x>169</x>
+      <x>222</x>
       <y>27</y>
-      <width>83</width>
+      <width>111</width>
       <height>23</height>
      </rect>
     </property>
@@ -143,7 +143,7 @@
      <rect>
       <x>9</x>
       <y>241</y>
-      <width>361</width>
+      <width>441</width>
       <height>21</height>
      </rect>
     </property>
@@ -160,9 +160,9 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>169</x>
+      <x>222</x>
       <y>55</y>
-      <width>83</width>
+      <width>111</width>
       <height>23</height>
      </rect>
     </property>
@@ -175,7 +175,7 @@
      <rect>
       <x>9</x>
       <y>271</y>
-      <width>101</width>
+      <width>131</width>
       <height>16</height>
      </rect>
     </property>
@@ -186,9 +186,9 @@
    <widget class="QComboBox" name="comboBox_Erase_Time">
     <property name="geometry">
      <rect>
-      <x>110</x>
+      <x>140</x>
       <y>270</y>
-      <width>61</width>
+      <width>81</width>
       <height>20</height>
      </rect>
     </property>
@@ -196,9 +196,9 @@
    <widget class="QLabel" name="label_Reset_Time">
     <property name="geometry">
      <rect>
-      <x>180</x>
+      <x>230</x>
       <y>271</y>
-      <width>131</width>
+      <width>151</width>
       <height>16</height>
      </rect>
     </property>
@@ -209,9 +209,9 @@
    <widget class="QComboBox" name="comboBox_Reset_Time">
     <property name="geometry">
      <rect>
-      <x>313</x>
+      <x>380</x>
       <y>270</y>
-      <width>51</width>
+      <width>71</width>
       <height>20</height>
      </rect>
     </property>
@@ -222,8 +222,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>370</width>
-     <height>21</height>
+     <width>460</width>
+     <height>26</height>
     </rect>
    </property>
   </widget>

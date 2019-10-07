@@ -5,6 +5,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QBasicTimer
 from Config_Serial_Qt import *
 from CRC16 import *
+from configparser import ConfigParser         # импортируем парсер ini файлов
 
 class Serial_Qt(QtWidgets.QMainWindow):
     #инициализация окна
@@ -33,8 +34,9 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Reset_Time.addItems(RESET_TIME)
         self.ui.comboBox_Reset_Time.setCurrentIndex(15)
         #вывод строки в statusbar
-        self.ui.statusbar.showMessage('Загрузчик: версия 2.10')
+        self.ui.statusbar.showMessage('Загрузчик: версия 2.12')
         self.numberClearRx = 0
+        self.ReadSettings()
 
     #*********************************************************************
     #первоначальная инициализация переменных
@@ -43,6 +45,39 @@ class Serial_Qt(QtWidgets.QMainWindow):
         #инициализация таймера приемника по RS
         self.timer_RX_RS = QBasicTimer()
         self.timer_RX_RS.stop()
+
+    #*********************************************************************
+    # чтение настроек из ini файла
+    #*********************************************************************
+    def ReadSettings(self):
+        #читаем переменные из файла настроек при первом входе
+        try:
+            # определяем парсер конфигурации из ini файла
+            self.config = ConfigParser()
+            # читаем конфигурацию
+            self.config.read(SETTINGS_FILENAME)
+            # Читаем нужные значения
+            self.filename = ['','']
+            self.filename[0] = self.config.get('main', 'filename')
+            self.TIME_TO_CPU_RESET = self.config.getint('main', 'time_to_cpu_reset')
+            self.TIME_TO_ERASE = self.config.getint('main', 'time_to_erase')
+            # открываем файл
+            self.OpenFile()
+        except :
+            self.filename = ''
+            self.TIME_TO_CPU_RESET = 2500  # время на перезагрузку - 2,5 с
+            self.TIME_TO_ERASE = 20000  # время на стирание FLASH - 2 с
+            # add a new section and some values
+            try:
+                self.config.add_section('main')
+                # записываем настройки в ini
+                self.WriteSettings()
+            except:
+                # записываем настройки в ini
+                self.WriteSettings()
+        # устанавливаем значения comboBox
+        self.ui.comboBox_Reset_Time.setCurrentText(str(self.TIME_TO_CPU_RESET))
+        self.ui.comboBox_Erase_Time.setCurrentText(str(self.TIME_TO_ERASE))
 
     #*********************************************************************
     #первоначальная инициализация переменных
@@ -110,18 +145,25 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.rs_DATA_TX = bytearray([0x00]) #данные для передачи
         self.rs_pack_size_TX = 0    #размер передаваемого пакета в байтах
         self.rs_pack_seq_TX = 0     #номер пакета в последовательности
-        self.TIME_TO_CPU_RESET = 2500                   #время на перезагрузку - 2,5 с
-        self.TIME_TO_ERASE = 20000                       #время на стирание FLASH - 2 с
         #начальные данные для приемника
         self.rs_pack_size_RX = 0    #размер принятого пакета в байтах
         self.rs_pack_seq_RX = 0     #номер принятого пакета в последовательности
         self.rs_ID_RX = 0           #ID принятой команды
-        #определяем переменную если она еще не определена
-        try:
-            if self.filename:
-                return
-        except:
-            self.filename = '' #файл не выбран
+
+    #*********************************************************************
+    # запись текущих настороек в ini
+    #*********************************************************************
+    def WriteSettings(self):
+        # изменяем запись в файле ini
+        if self.filename != '':
+            self.config.set('main', 'filename', self.filename[0])
+        else:
+            self.config.set('main', 'filename', '')
+        self.config.set('main', 'time_to_cpu_reset', str(self.TIME_TO_CPU_RESET))
+        self.config.set('main', 'time_to_erase', str(self.TIME_TO_ERASE))
+        # записываем изменения в файл
+        with open(SETTINGS_FILENAME, 'w') as configfile:
+            self.config.write(configfile)
 
     #*********************************************************************
     #активация кнопок после выбора порта и скорости
@@ -178,6 +220,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
         # устанавливаем значения времен для перезагрузки и стирания памяти в сигналке
         self.TIME_TO_CPU_RESET = int(self.ui.comboBox_Reset_Time.currentText()) #время на перезагрузку
         self.TIME_TO_ERASE = int(self.ui.comboBox_Erase_Time.currentText()) #время на стирание FLASH
+        # записываем настройки в ini файл
+        self.WriteSettings()
         #если нужно запустить прошивку
         if self.STATUS_NEW == self.ID2["IDLE"]:
             #меняем состояние программы
@@ -261,7 +305,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             bytesize=serial.EIGHTBITS,
                             xonxoff=0)
                     if baudrate == 115200:
-                        self.TIME_TO_RX = 40#было 40
+                        self.TIME_TO_RX = 100#было 40
                     elif baudrate == 57600:
                         self.TIME_TO_RX = 100#было 60
                     elif baudrate == 38400:
@@ -273,11 +317,11 @@ class Serial_Qt(QtWidgets.QMainWindow):
                     elif baudrate == 1200:
                         self.TIME_TO_RX = 1200#
                     elif baudrate == 230400:
-                        self.TIME_TO_RX = 40#
+                        self.TIME_TO_RX = 100#
                     elif baudrate == 460800:
-                        self.TIME_TO_RX = 40#
+                        self.TIME_TO_RX = 100#
                     elif baudrate == 921600:
-                        self.TIME_TO_RX = 40#
+                        self.TIME_TO_RX = 100#
                     self.TIME_TO_RX_DATA = 10#
                 except:
                     out_str = "Порт будет закрыт, повторите прошивку заново."
@@ -340,19 +384,6 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 print(int.from_bytes(rx_length, byteorder='little'))
                 if pack_length != int.from_bytes(rx_length, byteorder='little'):
                     return  #выходим если принятая длина не совпадает с реальной
-
-
-
-                # удалить после исправления ПО в железке
-                if self.STATUS_NEW == self.ID2["ERASE"]:
-                    if self.rs_receive_pack[self.Position["ID2"]] == self.ID2[
-                        "ERASE"]:  # проверка ответного ID2 - было [4]
-                        self.STATUS_OLD = self.STATUS_NEW
-                        self.STATUS_NEW = self.ID2["WRITE"]
-                        # устанавливаем ID2 состояние WRITE
-                        self.rs_ID2_TX = self.ID2["WRITE"]
-                        self.flag_RX_OK = True
-
 
                 if (self.rs_receive_pack[self.Position["DATA_START"]:(self.Position["DATA_START"]+2)] == OK_ANSWER[0:2])  :#получено OK ?
                     if self.STATUS_NEW == self.ID2["START"]:
@@ -450,22 +481,36 @@ class Serial_Qt(QtWidgets.QMainWindow):
             self.string_Data = self.string_Data + ' ' + str(hex(self.rs_send_pack[i]))
         print (self.string_Data)
         #отправляем в порт
+        #try:
         self.ser.write(self.rs_send_pack)
+        #except:
+        #    print('Ошибка отправки пакета')
         return
         #ps_pack_int = int.from_bytes(rs_pack_bytes, byteorder='big')
         #self.ser.write(self.rs_tx_buffer.encode('utf-8'))
         #rs_pack_size_TX = len(rs_pack_seq_TX.to_bytes(1,'big') + rs_ID.to_bytes(1,'big') + rs_DATA)
 
     #*********************************************************************
-    #открытие файла
+    # Обработка кнопки открытия файла
     #*********************************************************************
     def showDialog_Open_File(self):
-        self.filename = QtWidgets.QFileDialog.getOpenFileName(
-               self, 'Open File', '', 'BINARY (*.bin *.hex)',
-               None, QtWidgets.QFileDialog.DontUseNativeDialog)
+        try:
+            self.filename = QtWidgets.QFileDialog.getOpenFileName(
+                   self, 'Open File', self.filename[0] , 'BINARY (*.bin *.hex)',
+                   None, QtWidgets.QFileDialog.DontUseNativeDialog)
+        except:
+            self.filename = QtWidgets.QFileDialog.getOpenFileName(
+                self, 'Open File', '', 'BINARY (*.bin *.hex)',
+                None, QtWidgets.QFileDialog.DontUseNativeDialog)
         #self.filename = QtWidgets.QFileDialog.getOpenFileName(self, 'Открыть файл прошивки', '/dir')
+        self.OpenFile()
+        self.ui.pushButton_Send.setEnabled(SET)  # активируем кнопку "Прошить"
+
+    #*********************************************************************
+    # Открытие файла
+    #*********************************************************************
+    def OpenFile(self):
         if self.filename[0]!='':
-            self.ui.pushButton_Send.setEnabled(SET)   #активируем кнопку "Прошить"
             self.file_hex = open(self.filename[0],'rb')#открываем файл если он не открыт
             self.ui.label_File_Name.setText("Файл: " + self.filename[0])  #выводим название файла
             self.file_hex.seek(0, 2)    #переходим на конец файла
@@ -477,7 +522,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #*********************************************************************
     #отправка файла в порт
     #*********************************************************************
-    def OpenFile(self):
+    def FirstReadFile(self):
         if self.STATUS_NEW == self.ID2["WRITE"]:
             self.Transmit_Off = self.file_hex.closed
             #если файл закрыт - открываем его
@@ -499,11 +544,6 @@ class Serial_Qt(QtWidgets.QMainWindow):
             self.Transmit_Off = self.file_hex.closed
             #проверка оттрыт ли файл
             if self.Transmit_Off == False:
-                #файл открыт
-                #self.file_hex.seek(self.pos_new)
-                #читаем данные из файла
-                #self.rs_DATA_TX_temp = self.file_hex.read(READ_BYTES) #читает из файла 100 байт
-                #self.pos_new = self.file_hex.tell()  #сохраняем текущую позицию в файле
                 self.ui.progressBar.setValue(self.pos_new)   #установка текущего значения для progressBar
                 # читаем данные из allDataFile
                 self.rs_DATA_TX_temp = self.allDataFile[self.pos_new : (self.pos_new + READ_BYTES)]
@@ -525,7 +565,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 self.timer_RX_RS.start(delay_time, self) #ждем ответ в течении self.TIME_TO_RX мс
             return
         except:
-            out_str = "Ошибка работы с фойлом. Откройте файл заново."
+            out_str = "Ошибка отправки данных в устройство."
             QtWidgets.QMessageBox.warning(self, 'Сообщение',out_str , QtWidgets.QMessageBox.Ok)
             return
 
@@ -719,7 +759,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             self.analyze_pack()
                         if self.flag_RX_OK == True:
                             #переходим к передаче файла
-                            self.OpenFile()
+                            self.FirstReadFile()
                             #отправляем следующий пакет
                             self.Read_File()
                         else:

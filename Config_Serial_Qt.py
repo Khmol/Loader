@@ -12,4 +12,5 @@ NUMBER_SCAN_PORTS = 30   #количество портов для сканир�
 SET = 1
 RESET = 0
 MAX_NUMBER_CLEAR_RX = 10
+SETTINGS_FILENAME = 'settings.ini'
 
