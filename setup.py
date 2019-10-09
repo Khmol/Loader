@@ -29,7 +29,7 @@ executables = [
 ]
 
 setup(name='Loader',
-      version='2.10',
+      version='2.13',
       description='Loader',
       options=options,
       executables=executables

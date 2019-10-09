@@ -25,7 +25,7 @@ class Ui_Serial_Main(object):
         self.pushButton_Choice_File.setGeometry(QtCore.QRect(340, 55, 111, 23))
         self.pushButton_Choice_File.setObjectName("pushButton_Choice_File")
         self.label_File_Name = QtWidgets.QLabel(self.centralwidget)
-        self.label_File_Name.setGeometry(QtCore.QRect(14, 80, 351, 16))
+        self.label_File_Name.setGeometry(QtCore.QRect(14, 80, 441, 16))
         self.label_File_Name.setObjectName("label_File_Name")
         self.pushButton_Send = QtWidgets.QPushButton(self.centralwidget)
         self.pushButton_Send.setEnabled(False)

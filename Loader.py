@@ -34,7 +34,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Reset_Time.addItems(RESET_TIME)
         self.ui.comboBox_Reset_Time.setCurrentIndex(15)
         #вывод строки в statusbar
-        self.ui.statusbar.showMessage('Загрузчик: версия 2.12')
+        self.ui.statusbar.showMessage('Загрузчик: версия 2.13')
         self.numberClearRx = 0
         self.ReadSettings()
 
@@ -61,12 +61,14 @@ class Serial_Qt(QtWidgets.QMainWindow):
             self.filename[0] = self.config.get('main', 'filename')
             self.TIME_TO_CPU_RESET = self.config.getint('main', 'time_to_cpu_reset')
             self.TIME_TO_ERASE = self.config.getint('main', 'time_to_erase')
+            self.LOG = self.config.getboolean('main', 'log')
             # открываем файл
             self.OpenFile()
         except :
             self.filename = ''
             self.TIME_TO_CPU_RESET = 2500  # время на перезагрузку - 2,5 с
             self.TIME_TO_ERASE = 20000  # время на стирание FLASH - 2 с
+            self.LOG = False
             # add a new section and some values
             try:
                 self.config.add_section('main')
@@ -149,6 +151,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.rs_pack_size_RX = 0    #размер принятого пакета в байтах
         self.rs_pack_seq_RX = 0     #номер принятого пакета в последовательности
         self.rs_ID_RX = 0           #ID принятой команды
+        self.logfile = open('log.txt', 'w')
 
     #*********************************************************************
     # запись текущих настороек в ini
@@ -161,6 +164,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
             self.config.set('main', 'filename', '')
         self.config.set('main', 'time_to_cpu_reset', str(self.TIME_TO_CPU_RESET))
         self.config.set('main', 'time_to_erase', str(self.TIME_TO_ERASE))
+        self.config.set('main', 'log', str(self.LOG))
         # записываем изменения в файл
         with open(SETTINGS_FILENAME, 'w') as configfile:
             self.config.write(configfile)
@@ -207,11 +211,15 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #активация кнопок после выбора порта и скорости
     #*********************************************************************
     def open_COM_Handler(self):
-        self.Init_Vars()        #первоначальная инициализация переменных
-        self.Serial_Config()    #инициализируем порт
-        self.enable_Buttons_to_Work()   #активируем кнопки
-        if self.filename!='':
-            self.ui.pushButton_Send.setEnabled(SET)           #активируем кнопку "Прошить"
+        if self.ui.comboBox_COM.currentText() != '':
+            self.Init_Vars()        #первоначальная инициализация переменных
+            self.Serial_Config()    #инициализируем порт
+            self.enable_Buttons_to_Work()   #активируем кнопки
+            if self.filename!='':
+                self.ui.pushButton_Send.setEnabled(SET)           #активируем кнопку "Прошить"
+        else:
+            out_str = "Порт не выбран."
+            QtWidgets.QMessageBox.warning(self, 'Сообщение', out_str, QtWidgets.QMessageBox.Ok)
 
     #*********************************************************************
     #обработчик кнопки Прошить/Прервать
@@ -241,7 +249,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
     #де-активация кнопок после закрытия порта
     #*********************************************************************
     def close_COM_Handler(self):
-        self.ser.close()                                  #закрываем порт
+        #закрываем лог файл
+        self.logfile.close()
+        # закрываем порт
+        self.ser.close()
         self.Change_Button_Stop_to_Send()                 #изменяем надпись на кнопке - Прервать на Прошить
         self.Disable_All_Buttons()                        #выключаем все кнопки и элементы выбора
         self.Disable_Buttons_to_Select_COM()              #изменяем кнопки для выбора порта и скорости
@@ -342,7 +353,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.string_Data = '<< ' + str(len(RX_Data)) + ' байт '
         for i in range (len(RX_Data)):
             self.string_Data = self.string_Data + ' ' + str(hex(RX_Data[i]))
-        print (self.string_Data)
+        if self.LOG == True:
+            print (self.string_Data)
+            # записываем в лог файл принятые данные
+            self.logfile.write(self.string_Data + '\n')
         return RX_Data
 
     #*********************************************************************
@@ -381,8 +395,11 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 #проверяем правильная ли длина
 
                 rx_length = self.rs_receive_pack[self.Position["SIZE_H"]:(self.Position["SIZE_L"]+1)]
-                print(int.from_bytes(rx_length, byteorder='little'))
+                #print(int.from_bytes(rx_length, byteorder='little'))
                 if pack_length != int.from_bytes(rx_length, byteorder='little'):
+                    if self.LOG == True:
+                        print('Error Length')
+                        self.logfile.write('Error Length\n')
                     return  #выходим если принятая длина не совпадает с реальной
 
                 if (self.rs_receive_pack[self.Position["DATA_START"]:(self.Position["DATA_START"]+2)] == OK_ANSWER[0:2])  :#получено OK ?
@@ -403,6 +420,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             #получен ответ
                             self.pos_last = self.pos_new
                             self.flag_RX_OK = True
+                        else:
+                            if self.LOG == True:
+                                print('Error Position')
+                                self.logfile.write('Error Position\n')
                     elif self.STATUS_NEW == self.ID2["WRITE_END"]:
                         if self.rs_receive_pack[self.Position["ID2"]] == self.ID2["WRITE_END"]: #проверка ответного ID2 - было [4]
                             self.STATUS_OLD = self.STATUS_NEW
@@ -424,10 +445,19 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             #устанавливаем ID2 состояние IDLE
                             self.rs_ID2_TX = self.ID2["IDLE"]
                             self.flag_RX_OK = True
+                    else:
+                        if self.LOG == True:
+                            print('Error ID2')
+                            self.logfile.write('Error ID2\n')
                     return
                 else:
                     if self.STATUS_NEW == self.ID2["END"]:
                         self.flag_RX_OK = False
+            else:
+                if self.LOG == True:
+                    print('CRC Error')
+                    # записываем в лог файл пепелаееые алееые
+                    self.logfile.write('CRC Error\n')
         else:
             #если хоть что то было не так, не будет установлен флаг self.flag_RX_OK
             # и нужно повторить передачу последнего пакета
@@ -479,12 +509,13 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.string_Data = '>> ' + str(len(self.rs_send_pack)) + ' байт '
         for i in range (len(self.rs_send_pack)):
             self.string_Data = self.string_Data + ' ' + str(hex(self.rs_send_pack[i]))
-        print (self.string_Data)
-        #отправляем в порт
-        #try:
+        if self.LOG == True:
+            # записываем в лог файл пепелаееые алееые
+            self.logfile.write(self.string_Data + '\n')
+            # выводим переданные данные в консоль
+            print(self.string_Data)
+        # передаем данные в порт RS
         self.ser.write(self.rs_send_pack)
-        #except:
-        #    print('Ошибка отправки пакета')
         return
         #ps_pack_int = int.from_bytes(rs_pack_bytes, byteorder='big')
         #self.ser.write(self.rs_tx_buffer.encode('utf-8'))
@@ -709,6 +740,9 @@ class Serial_Qt(QtWidgets.QMainWindow):
                         if self.rs_receive_pack != '':
                             #анализзируем принятые данные
                             self.analyze_pack()
+                        else:
+                            self.rs_receive_pack = '123'
+                            pass
                         if self.flag_RX_OK == True:
                             self.numberClearRx = 0
                             #пакет был принят без ошибок
@@ -718,6 +752,9 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             self.Read_File()
                         else:
                             self.numberClearRx += 1
+                            if self.numberClearRx == 3:
+                                pass
+
                             if self.numberClearRx == MAX_NUMBER_CLEAR_RX:
                                 # в принятом пакете была ошибка, отправляем предыдущий пакет повторно
                                 self.Send_Previous_Pack()
