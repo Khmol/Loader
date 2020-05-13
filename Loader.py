@@ -1,5 +1,6 @@
 #coding: utf8
 import sys, serial, time
+from BIN_ASCII import *
 from Ui_Serial_Main import *
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QBasicTimer
@@ -20,6 +21,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.pushButton_Choice_File.clicked.connect(self.showDialog_Open_File)   #выбрать файл
         self.ui.pushButton_open_COM.clicked.connect(self.open_COM_Handler)          #обрабатываем нажатие кнопки отсрыть порт
         self.ui.pushButton_close_COM.clicked.connect(self.close_COM_Handler)        #обрабатываем нажатие кнопки закрыть порт
+        self.ui.pushButton_Password_Set.clicked.connect(self.password_Set_Handler)        #обрабатываем нажатие кнопки закрыть порт
+
         #инициализация RS
         self.init_RS()
         #инициализация таймера
@@ -34,7 +37,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Reset_Time.addItems(RESET_TIME)
         self.ui.comboBox_Reset_Time.setCurrentIndex(15)
         #вывод строки в statusbar
-        self.ui.statusbar.showMessage('Загрузчик: версия 2.13')
+        self.ui.statusbar.showMessage('Загрузчик: версия 2.15')
         self.numberClearRx = 0
         self.ReadSettings()
 
@@ -118,6 +121,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
             "BOOTLODER_RESP": 2,
             "SETUP_REQ": 3,
             "SETUP_RESP": 4,
+            "PASSWORD_SET": 250,
+            "PASSWORD_RESP": 251,
             "CPU_RESET": 254 #программный сброс
         }
         #словарь для ID2
@@ -170,7 +175,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
             self.config.write(configfile)
 
     #*********************************************************************
-    #активация кнопок после выбора порта и скорости
+    # активация кнопок после выбора порта и скорости
     #*********************************************************************
     def enable_Buttons_to_Work(self):
         self.ui.pushButton_Choice_File.setEnabled(SET)      #активируем кнопку выбор файла
@@ -180,9 +185,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Baudrate.setDisabled(SET)          #де-активируем выбор скорости
         self.ui.comboBox_Erase_Time.setDisabled(SET)        #де-активируем выбор времени стирания
         self.ui.comboBox_Reset_Time.setDisabled(SET)        #де-активируем выбор времени перезагрузки
+        self.ui.pushButton_Password_Set.setEnabled(SET)     #активируем кнопку "Задать пароль"
 
     #*********************************************************************
-    #активация кнопок после выбора порта и скорости
+    # де-активация всех кнопок
     #*********************************************************************
     def Disable_All_Buttons(self):
         self.ui.pushButton_Choice_File.setDisabled(SET)        #де-активируем кнопку выбор файла
@@ -193,9 +199,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Erase_Time.setDisabled(SET)           #де-активируем выбор времени стирания
         self.ui.comboBox_Reset_Time.setDisabled(SET)           #де-активируем выбор времени перезагрузки
         self.ui.pushButton_Send.setDisabled(SET)               #де-активируем кнопку "Прошить"
+        self.ui.pushButton_Password_Set.setDisabled(SET)       #де-активируем кнопку "Задать пароль"
 
     #*********************************************************************
-    #активация кнопок после выбора порта и скорости
+    # де-активация кнопок после выбора порта
     #*********************************************************************
     def Disable_Buttons_to_Select_COM(self):
         self.ui.pushButton_Choice_File.setDisabled(SET)        #де-активируем кнопку выбор файла
@@ -206,9 +213,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Erase_Time.setEnabled(SET)            #активируем выбор времени стирания
         self.ui.comboBox_Reset_Time.setEnabled(SET)            #активируем выбор времени перезагрузки
         self.ui.pushButton_Send.setDisabled(SET)               #де-активируем кнопку "Прошить"
+        self.ui.pushButton_Password_Set.setDisabled(SET)       #де-активируем кнопку "Задать пароль"
 
     #*********************************************************************
-    #активация кнопок после выбора порта и скорости
+    # обработчик открытия порта
     #*********************************************************************
     def open_COM_Handler(self):
         if self.ui.comboBox_COM.currentText() != '':
@@ -222,7 +230,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, 'Сообщение', out_str, QtWidgets.QMessageBox.Ok)
 
     #*********************************************************************
-    #обработчик кнопки Прошить/Прервать
+    # обработчик кнопки Прошить/Прервать
     #*********************************************************************
     def Send_Stop_Handler(self):
         # устанавливаем значения времен для перезагрузки и стирания памяти в сигналке
@@ -263,6 +271,14 @@ class Serial_Qt(QtWidgets.QMainWindow):
             #обнуляем полосу прогресса
             self.ui.progressBar.setValue(0)   #установка нового значения для progressBar
             self.timer_RX_RS.start(self.TIME_TO_CPU_RESET, self) #ждем пока устройство перезагрузится
+
+    #*********************************************************************
+    # обработчик нажатия кнопки "Задать пароль"
+    #*********************************************************************
+    def password_Set_Handler(self):
+        self.STATUS_NEW = self.ID1["PASSWORD_SET"]
+        self.rs_ID1_TX = self.ID1["PASSWORD_SET"]
+        self.timer_RX_RS.start(self.TIME_TO_RX_DATA, self)  # переходим к отправке пароля
 
     #*********************************************************************
     #определение свободных COM портов
@@ -363,15 +379,18 @@ class Serial_Qt(QtWidgets.QMainWindow):
     # анализ принятых данных из RS
     #*********************************************************************
     def analyze_pack(self):
-        #проверка на стартовую посылку
-        adr_start = self.rs_receive_pack.find(self.RS_START)
-        command = bytearray()
-        if adr_start != -1:
-            adr_stop = self.rs_receive_pack.find(self.RS_START, 2)
-            if adr_stop != -1:
-                command = self.rs_receive_pack[adr_start : adr_stop]
-            else:
-                command = self.rs_receive_pack[adr_start : ]
+        if self.rs_receive_pack != '':
+            #проверка на стартовую посылку
+            adr_start = self.rs_receive_pack.find(self.RS_START)
+            command = bytearray()
+            if adr_start != -1:
+                adr_stop = self.rs_receive_pack.find(self.RS_START, (adr_start + 1))
+                if adr_stop != -1:
+                    command = self.rs_receive_pack[adr_start : adr_stop]
+                else:
+                    command = self.rs_receive_pack[adr_start : ]
+        else:
+            command = ''
 
         #if self.rs_receive_pack[0:2] == self.RS_START:
         if command != '':
@@ -445,6 +464,11 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             #устанавливаем ID2 состояние IDLE
                             self.rs_ID2_TX = self.ID2["IDLE"]
                             self.flag_RX_OK = True
+                    elif self.STATUS_NEW == self.ID1["PASSWORD_RESP"]:
+                        self.ui.label_Password_Result.setText(QtCore.QCoreApplication.translate(
+                            "Serial_Main", "<html><head/><body><p><span style=\" color:#00ff00;\">Правильно</span></p></body></html>"))
+                        # изменияем значение rs_ID1_TЧ для следующей передачи
+                        self.rs_ID1_TX = self.ID1["CPU_RESET"]
                     else:
                         if self.LOG == True:
                             print('Error ID2')
@@ -453,6 +477,11 @@ class Serial_Qt(QtWidgets.QMainWindow):
                 else:
                     if self.STATUS_NEW == self.ID2["END"]:
                         self.flag_RX_OK = False
+                    elif self.STATUS_NEW == self.ID1["PASSWORD_RESP"]:
+                        self.ui.label_Password_Result.setText(QtCore.QCoreApplication.translate(
+                            "Serial_Main", "<html><head/><body><p><span style=\" color:#ff0000;\">Ошибка</span></p></body></html>"))
+                        # изменияем значение rs_ID1_TЧ для следующей передачи
+                        self.rs_ID1_TX = self.ID1["CPU_RESET"]
             else:
                 if self.LOG == True:
                     print('CRC Error')
@@ -688,7 +717,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         #данных для передечи нет
         self.rs_DATA_TX = bytearray([0x00]) #данных для передечи нет
         self.Transmit_RS_Data() #передаем данные в порт
-        self.timer_RX_RS.start(self.TIME_TO_RX * 10, self) #ждем ответ в течении self.TIME_TO_RX мс
+        self.timer_RX_RS.start(self.TIME_TO_CPU_RESET, self) #ждем ответ в течении self.TIME_TO_RX мс
         return
 
     #*********************************************************************
@@ -719,12 +748,42 @@ class Serial_Qt(QtWidgets.QMainWindow):
         return
 
     #*********************************************************************
+    # отправить пакет задание пароля
+    #*********************************************************************
+    def Send_Password_Set_Pack(self):
+        #формируем данные для передачи
+        self.rs_ID2_TX = self.ID2["IDLE"]
+        # читаем значение пароля и преобразуем его для отправки
+        self.rs_DATA_TX = Convert_Str_to_Bytearray(self.ui.lineEdit_Password.text())
+        # передаем данные в порт
+        self.Transmit_RS_Data()
+        # ждем ответ в течении self.TIME_TO_CPU_RESET мс
+        self.timer_RX_RS.start(self.TIME_TO_RX_DATA, self)
+        return
+
+    #*********************************************************************
     #инициализация таймера
     #*********************************************************************
     def timerEvent(self, e):
             self.timer_RX_RS.stop() #выключаем таймер
             try:
-                if self.rs_ID1_TX == self.ID1["CPU_RESET"]:
+                if self.rs_ID1_TX == self.ID1["PASSWORD_SET"]:
+                    # задание пароля
+                    self.ui.plainTextEdit.appendPlainText("Отправка пароля")
+                    # отпаравляем пакет перезагрузки
+                    self.Send_Password_Set_Pack()
+                    # переходим к ожиданию ответа
+                    self.rs_ID1_TX = self.ID1["PASSWORD_RESP"]
+                    return
+                elif self.rs_ID1_TX == self.ID1["PASSWORD_RESP"]:
+                    if self.STATUS_NEW == self.ID1["PASSWORD_SET"]:
+                        # изменяем STATUS_NEW на PASSWORD_RESP
+                        self.STATUS_NEW = self.ID1["PASSWORD_RESP"]
+                        # получаем данные
+                        self.rs_receive_pack = self.Recieve_RS_Data()
+                        # анализзируем принятые данные
+                        self.analyze_pack()
+                elif self.rs_ID1_TX == self.ID1["CPU_RESET"]:
                     #вывод "RESET"
                     self.ui.plainTextEdit.appendPlainText("Перезагрузка устройства")
                     #отпаравляем пакет перезагрузки
@@ -740,9 +799,6 @@ class Serial_Qt(QtWidgets.QMainWindow):
                         if self.rs_receive_pack != '':
                             #анализзируем принятые данные
                             self.analyze_pack()
-                        else:
-                            self.rs_receive_pack = '123'
-                            pass
                         if self.flag_RX_OK == True:
                             self.numberClearRx = 0
                             #пакет был принят без ошибок
@@ -752,16 +808,13 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             self.Read_File()
                         else:
                             self.numberClearRx += 1
-                            if self.numberClearRx == 3:
-                                pass
 
                             if self.numberClearRx == MAX_NUMBER_CLEAR_RX:
                                 # в принятом пакете была ошибка, отправляем предыдущий пакет повторно
                                 self.Send_Previous_Pack()
                                 #вывод "ошибка обмена данными"
                                 self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
-                        # ждем ответ в течении self.TIME_TO_RX_DATA мc
-                        self.timer_RX_RS.start(self.TIME_TO_RX_DATA, self)
+                        self.timer_RX_RS.start(self.TIME_TO_RX_DATA, self)  # ждем ответ в течении self.TIME_TO_RX мс
                         self.flag_RX_OK = False
                         return
                     elif self.STATUS_NEW == self.ID2["START"]:
@@ -812,36 +865,25 @@ class Serial_Qt(QtWidgets.QMainWindow):
                             #анализзируем принятые данные
                             self.analyze_pack()
                         if self.flag_RX_OK == True:
+                            self.numberClearRx = 0
                             #переходим к передаче завершающего пакета
                             self.Send_End_Pack()
                         else:
-                            #пакет был принят с ошибкой, отправляем его повторно
+                            self.numberClearRx += 1
+
+                        if self.numberClearRx == MAX_NUMBER_CLEAR_RX:
+                            # пакет был принят с ошибкой, отправляем его повторно
                             self.Send_Write_End_Pack()
                             #вывод "ошибка обмена данными"
                             self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
+                        self.timer_RX_RS.start(self.TIME_TO_RX_DATA, self)  # ждем ответ в течении self.TIME_TO_RX мс
                         self.flag_RX_OK = False
                         return
                     elif self.STATUS_NEW == self.ID2["END"]:
-                        self.rs_receive_pack = self.Recieve_RS_Data()
-                        if self.rs_receive_pack != '':
-                            #анализзируем принятые данные
-                            self.analyze_pack()
-                            if self.flag_RX_OK == True:
-                                #закрываем порт и изменяем надписи на кнопках
-                                self.close_COM_Handler()
-                            else:
-                                #пакет был принят c ошибкой, отправляем его повторно
-                                self.Send_End_Pack()
-                                #вывод "ошибка обмена данными"
-                                self.ui.plainTextEdit.appendPlainText("Ошибка обмена данными")
-                        else:
-                            #вывод "END RESET"
-                            self.ui.plainTextEdit.appendPlainText("Завершение записи")
-                            #закрываем порт и изменяем надписи на кнопках
-                            self.close_COM_Handler()
-                            #переходим в состояние IDLE
-
-                        self.flag_RX_OK = False
+                        #вывод "END RESET"
+                        self.ui.plainTextEdit.appendPlainText("Завершение записи")
+                        #закрываем порт и изменяем надписи на кнопках
+                        self.close_COM_Handler()
                         return
                     elif self.STATUS_NEW == self.ID2["RESET"]:
                         #проводим повторный опрос портов

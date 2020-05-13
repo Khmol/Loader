@@ -7,19 +7,19 @@
     <x>0</x>
     <y>0</y>
     <width>460</width>
-    <height>370</height>
+    <height>376</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
     <width>460</width>
-    <height>370</height>
+    <height>376</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
     <width>460</width>
-    <height>370</height>
+    <height>376</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -216,6 +216,68 @@
      </rect>
     </property>
    </widget>
+   <widget class="QPushButton" name="pushButton_Password_Set">
+    <property name="enabled">
+     <bool>false</bool>
+    </property>
+    <property name="geometry">
+     <rect>
+      <x>230</x>
+      <y>300</y>
+      <width>111</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Задать пароль</string>
+    </property>
+   </widget>
+   <widget class="QLabel" name="label_Password_Result">
+    <property name="geometry">
+     <rect>
+      <x>360</x>
+      <y>300</y>
+      <width>91</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;br/&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+    </property>
+   </widget>
+   <widget class="QLineEdit" name="lineEdit_Password">
+    <property name="geometry">
+     <rect>
+      <x>10</x>
+      <y>300</y>
+      <width>211</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="maxLength">
+     <number>32</number>
+    </property>
+    <property name="echoMode">
+     <enum>QLineEdit::PasswordEchoOnEdit</enum>
+    </property>
+   </widget>
+   <zorder>pushButton_Choice_File</zorder>
+   <zorder>label_File_Name</zorder>
+   <zorder>pushButton_Send</zorder>
+   <zorder>plainTextEdit</zorder>
+   <zorder>comboBox_Baudrate</zorder>
+   <zorder>comboBox_COM</zorder>
+   <zorder>label_2</zorder>
+   <zorder>pushButton_open_COM</zorder>
+   <zorder>progressBar</zorder>
+   <zorder>pushButton_close_COM</zorder>
+   <zorder>label_Erase_Time</zorder>
+   <zorder>comboBox_Erase_Time</zorder>
+   <zorder>label_Reset_Time</zorder>
+   <zorder>comboBox_Reset_Time</zorder>
+   <zorder>pushButton_Password_Set</zorder>
+   <zorder>lineEdit_Password</zorder>
+   <zorder>label_Password_Result</zorder>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
