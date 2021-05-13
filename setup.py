@@ -20,8 +20,8 @@ if sys.platform == 'win32':
 
 options = {
     'build_exe': {
-        'includes': 'atexit'
-    }
+        'packages':['atexit', 'serial']
+}
 }
 
 executables = [
@@ -29,7 +29,7 @@ executables = [
 ]
 
 setup(name='Loader',
-      version='2.15',
+      version='2.16',
       description='Loader',
       options=options,
       executables=executables

@@ -37,7 +37,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
         self.ui.comboBox_Reset_Time.addItems(RESET_TIME)
         self.ui.comboBox_Reset_Time.setCurrentIndex(15)
         #вывод строки в statusbar
-        self.ui.statusbar.showMessage('Загрузчик: версия 2.15')
+        self.ui.statusbar.showMessage('Загрузчик: версия 2.16')
         self.numberClearRx = 0
         self.ReadSettings()
 
@@ -133,7 +133,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
             "WRITE": 3,
             "WRITE_END": 4,
             "END": 10,
-            "RESET": 11
+            "RESET": 11,
         }
         self.Position = {
             "PRE_H": 0,
@@ -221,10 +221,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
     def open_COM_Handler(self):
         if self.ui.comboBox_COM.currentText() != '':
             self.Init_Vars()        #первоначальная инициализация переменных
-            self.Serial_Config()    #инициализируем порт
-            self.enable_Buttons_to_Work()   #активируем кнопки
-            if self.filename!='':
-                self.ui.pushButton_Send.setEnabled(SET)           #активируем кнопку "Прошить"
+            if self.Serial_Config():    #инициализируем порт
+                self.enable_Buttons_to_Work()   #активируем кнопки
+                if self.filename!='':
+                    self.ui.pushButton_Send.setEnabled(SET)           #активируем кнопку "Прошить"
         else:
             out_str = "Порт не выбран."
             QtWidgets.QMessageBox.warning(self, 'Сообщение', out_str, QtWidgets.QMessageBox.Ok)
@@ -312,6 +312,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
     def Serial_Config(self):
             # configure the serial connections (the parameters differs on the device you are connecting to)
             baudrate = int(self.ui.comboBox_Baudrate.currentText())
+            self.TIME_TO_WAIT = 500  #
             try:
                 #проверяем есть ли порт
                 if self.ser.isOpen() == False:#
@@ -322,6 +323,8 @@ class Serial_Qt(QtWidgets.QMainWindow):
                         timeout=0,
                         bytesize=serial.EIGHTBITS,
                         xonxoff=0)
+                self.TIME_TO_RX_DATA = 10#
+                return True
             except:
                 try:
                     self.ser = serial.Serial(self.ui.comboBox_COM.currentText(),
@@ -350,14 +353,17 @@ class Serial_Qt(QtWidgets.QMainWindow):
                     elif baudrate == 921600:
                         self.TIME_TO_RX = 100#
                     self.TIME_TO_RX_DATA = 10#
+                    return True
                 except:
-                    out_str = "Порт будет закрыт, повторите прошивку заново."
-                    QtWidgets.QMessageBox.warning(self, 'Ошибка работы с портом №2',out_str , QtWidgets.QMessageBox.Ok)
+                    self.timer_RX_RS.start(self.TIME_TO_WAIT, self)  # переходим к отправке пароля
+                    return False
+                #     out_str = "Порт будет закрыт, повторите прошивку заново."
+                #     QtWidgets.QMessageBox.warning(self, 'Ошибка работы с портом №2',out_str , QtWidgets.QMessageBox.Ok)
                     #Закрытие порта и выключение записи - переход в исходное состояние
-                    self.STATUS_OLD = self.STATUS_NEW
-                    self.STATUS_NEW = self.ID2["IDLE"]
-                    self.close_COM_Handler()
-                    return
+                    # self.STATUS_OLD = self.STATUS_NEW
+                    # self.STATUS_NEW = self.ID2["IDLE"]
+                    # self.close_COM_Handler()
+                    # return
 
     #*********************************************************************
     #проверка наличия данных в буфере RS
@@ -412,9 +418,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
                     self.rs_receive_pack[(self.Position["DATA_START"]+1)] = ord('K')
                 #CRC сошлось, проводим проверку тела данных
                 #проверяем правильная ли длина
-
                 rx_length = self.rs_receive_pack[self.Position["SIZE_H"]:(self.Position["SIZE_L"]+1)]
-                #print(int.from_bytes(rx_length, byteorder='little'))
                 if pack_length != int.from_bytes(rx_length, byteorder='little'):
                     if self.LOG == True:
                         print('Error Length')
@@ -467,8 +471,10 @@ class Serial_Qt(QtWidgets.QMainWindow):
                     elif self.STATUS_NEW == self.ID1["PASSWORD_RESP"]:
                         self.ui.label_Password_Result.setText(QtCore.QCoreApplication.translate(
                             "Serial_Main", "<html><head/><body><p><span style=\" color:#00ff00;\">Правильно</span></p></body></html>"))
-                        # изменияем значение rs_ID1_TЧ для следующей передачи
+                        # изменияем значение rs_ID1_TХ и STATUS_NEW для следующей передачи
                         self.rs_ID1_TX = self.ID1["CPU_RESET"]
+                        self.STATUS_OLD = self.STATUS_NEW
+                        self.STATUS_NEW = self.ID2["IDLE"]
                     else:
                         if self.LOG == True:
                             print('Error ID2')
@@ -480,7 +486,7 @@ class Serial_Qt(QtWidgets.QMainWindow):
                     elif self.STATUS_NEW == self.ID1["PASSWORD_RESP"]:
                         self.ui.label_Password_Result.setText(QtCore.QCoreApplication.translate(
                             "Serial_Main", "<html><head/><body><p><span style=\" color:#ff0000;\">Ошибка</span></p></body></html>"))
-                        # изменияем значение rs_ID1_TЧ для следующей передачи
+                        # изменияем значение rs_ID1_TХ для следующей передачи
                         self.rs_ID1_TX = self.ID1["CPU_RESET"]
             else:
                 if self.LOG == True:
@@ -819,11 +825,11 @@ class Serial_Qt(QtWidgets.QMainWindow):
                         return
                     elif self.STATUS_NEW == self.ID2["START"]:
                         if self.STATUS_OLD != self.ID2["START"]:
-                            self.Serial_Config() # открываем порт
-                            # отправляем пакет СТАРТ
-                            self.Send_Start_Pack()  # отправляем стартовый пакет
-                            # вывод "ошибка обмена данными"
-                            self.timer_RX_RS.start(self.TIME_TO_RX, self)  # ждем ответ в течении self.TIME_TO_RX мс
+                            if self.Serial_Config(): # открываем порт
+                                # отправляем пакет СТАРТ
+                                self.Send_Start_Pack()  # отправляем стартовый пакет
+                                # вывод "ошибка обмена данными"
+                                self.timer_RX_RS.start(self.TIME_TO_RX, self)  # ждем ответ в течении self.TIME_TO_RX мс
                         else:
                             self.rs_receive_pack = self.Recieve_RS_Data()
                             if self.rs_receive_pack != '':
